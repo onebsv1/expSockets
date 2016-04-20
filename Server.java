@@ -79,7 +79,7 @@ public class Server {
 
         try {
             while (socketThreads.size() < connectionLimit) {
-                Socket clientSocket = serverSocket.accept();   //A=> this is the blocking call which doesn't allow bulk reclamation
+                Socket clientSocket = serverSocket.accept();
                 socketThreads.add(new Thread(new serverThread(clientSocket)));
                 socketThreads.get(socketThreads.size()-1).start();
             }
@@ -97,8 +97,6 @@ public class Server {
         Integer serverIteration = 1;
         ArrayList<Thread> socketThreads = new ArrayList<>();
         boolean reclaimed;
-        boolean maxedOut;
-
 
 
         try (ServerSocket serverSocket = new ServerSocket(socketPort)) {
@@ -107,34 +105,21 @@ public class Server {
             for (int i=0; i < connectionLimit; i++){
                 Socket clientSocket = serverSocket.accept();
                 socketThreads.add(new Thread(new serverThread(clientSocket)));
-                //socketThreads.get(i).setDaemon(true);
                 socketThreads.get(i).start();
             }
-
-            maxedOut =true;
-            reclaimed = false;
 
 
             while (true){
                 System.out.println("Iteration #"+serverIteration);
+
                 pollConnections(socketThreads);
-                if(maxedOut) {
-                    reclaimUnusedConnections(socketThreads);
-                    reclaimed = (socketThreads.size() < connectionLimit);
-                }
-
-                //if one of the threads disconnect and you reclaim one socket, it goes to acceptNew.
-                //This means, if another one disconnects in the meanwhile and nobody connects, it will be reclaimed only
-                //after the one reclaimed socket, now in, acceptNew has been accepted. => A
-
-                //Need a blocking on accept status? Could possibly while loop reclaim
+                reclaimUnusedConnections(socketThreads);
+                reclaimed = (socketThreads.size() < connectionLimit);
 
                 if(reclaimed) {
                     // blocks until all of the reclaimed sockets have been used.
                     acceptNewIncomingConnections(socketThreads, serverSocket, connectionLimit);
-                    maxedOut = (socketThreads.size() == connectionLimit);
                 }
-
 
                 try{
                     Thread.sleep(1000);
