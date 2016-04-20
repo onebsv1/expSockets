@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * Created by Bhargav Srinivasan on 4/13/16.
@@ -52,7 +53,7 @@ public class Server {
         }
     }
 
-    private static void pollConnections(ArrayList<Thread> socketThreads){
+    private static void pollConnections(ConcurrentLinkedDeque<Thread> socketThreads){
 
         for (Thread sockThread : socketThreads) {
             System.out.println(sockThread.getName() + " isAlive status: " + sockThread.isAlive());
@@ -60,7 +61,7 @@ public class Server {
 
     }
 
-    private static void reclaimUnusedConnections(ArrayList<Thread> socketThreads){
+    private static void reclaimUnusedConnections(ConcurrentLinkedDeque<Thread> socketThreads){
 
         try {
             for (Thread sockThread: socketThreads) {
@@ -75,13 +76,13 @@ public class Server {
 
     }
 
-    private static void acceptNewIncomingConnections(ArrayList<Thread> socketThreads,ServerSocket serverSocket, Integer connectionLimit){
+    private static void acceptNewIncomingConnections(ConcurrentLinkedDeque<Thread> socketThreads,ServerSocket serverSocket, Integer connectionLimit){
 
         try {
             while (socketThreads.size() < connectionLimit) {
                 Socket clientSocket = serverSocket.accept();
                 socketThreads.add(new Thread(new serverThread(clientSocket)));
-                socketThreads.get(socketThreads.size()-1).start();
+                socketThreads.getLast().start();
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -93,9 +94,9 @@ public class Server {
     public static void main(String args[]) {
 
         Integer socketPort = 24002;
-        Integer connectionLimit = 2;
+        Integer connectionLimit = 3;
         Integer serverIteration = 1;
-        ArrayList<Thread> socketThreads = new ArrayList<>();
+        ConcurrentLinkedDeque<Thread> socketThreads = new ConcurrentLinkedDeque<>();
         boolean reclaimed;
 
 
@@ -105,7 +106,7 @@ public class Server {
             for (int i=0; i < connectionLimit; i++){
                 Socket clientSocket = serverSocket.accept();
                 socketThreads.add(new Thread(new serverThread(clientSocket)));
-                socketThreads.get(i).start();
+                socketThreads.getLast().start();
             }
 
 
