@@ -8,12 +8,12 @@ import java.util.ArrayList;
  */
 public class Server {
 
-    public static class serverThread implements Runnable {
+    private static class serverThread implements Runnable {
 
         private Socket clientSocket;
-        String line = new String ();
+        String line;
 
-        public serverThread(Socket clientSock){
+        serverThread(Socket clientSock){
             this.clientSocket = clientSock;
         }
 
@@ -29,7 +29,7 @@ public class Server {
                     try {
                         line = is.readLine();
                         os.println("From Server: " + line);
-                        if(clientSocket.isInputShutdown() || line.equals(null)){
+                        if(clientSocket.isInputShutdown() || line.isEmpty()){
                             Thread.sleep(100);
                             break;
                         }
@@ -44,7 +44,6 @@ public class Server {
                 }
 
                 clientSocket.close();
-                return;
 
             } catch (IOException e1){
                 e1.printStackTrace();
@@ -53,30 +52,30 @@ public class Server {
         }
     }
 
-    public static void pollConnections(ArrayList<Thread> socketThreads){
+    private static void pollConnections(ArrayList<Thread> socketThreads){
 
-        for (int i = 0; i < socketThreads.size(); i++) {
-            System.out.println(socketThreads.get(i).getName() + " isAlive status: " + socketThreads.get(i).isAlive());
+        for (Thread sockThread : socketThreads) {
+            System.out.println(sockThread.getName() + " isAlive status: " + sockThread.isAlive());
         }
 
     }
 
-    public static void reclaimUnusedConnections(ArrayList<Thread> socketThreads, Integer connectionLimit){
+    private static void reclaimUnusedConnections(ArrayList<Thread> socketThreads){
 
         try {
-            for (int i = 0; i < socketThreads.size(); i++) {
-                socketThreads.get(i).join(10);
-                if(!socketThreads.get(i).isAlive()){
-                    socketThreads.remove(i);
+            for (Thread sockThread: socketThreads) {
+                sockThread.join(10);
+                if(!sockThread.isAlive()){
+                    socketThreads.remove(sockThread);
                 }
             }
-        } catch (InterruptedException e3) {
-            e3.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
 
     }
 
-    public static void acceptNewIncomingConnections(ArrayList<Thread> socketThreads,ServerSocket serverSocket, Integer connectionLimit){
+    private static void acceptNewIncomingConnections(ArrayList<Thread> socketThreads,ServerSocket serverSocket, Integer connectionLimit){
 
         try {
             while (socketThreads.size() < connectionLimit) {
@@ -84,24 +83,22 @@ public class Server {
                 socketThreads.add(new Thread(new serverThread(clientSocket)));
                 socketThreads.get(socketThreads.size()-1).start();
             }
-        } catch (IOException e4) {
-            e4.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
-        return;
 
     }
 
 
     public static void main(String args[]) {
 
-        Integer socketPort = new Integer(24002);
-        Integer connectionLimit = new Integer(2);
+        Integer socketPort = 24002;
+        Integer connectionLimit = 2;
+        Integer serverIteration = 1;
         ArrayList<Thread> socketThreads = new ArrayList<>();
-        boolean isAlive = true;
-        boolean reclaimed = false;
-        boolean maxedOut = false;
-        Integer num = 1;
+        boolean reclaimed;
+        boolean maxedOut;
+
 
 
         try (ServerSocket serverSocket = new ServerSocket(socketPort)) {
@@ -118,14 +115,12 @@ public class Server {
             reclaimed = false;
 
 
-            while (isAlive){
-                System.out.println("Iteration #"+num);
+            while (true){
+                System.out.println("Iteration #"+serverIteration);
                 pollConnections(socketThreads);
                 if(maxedOut) {
-                    reclaimUnusedConnections(socketThreads, connectionLimit);
-                    if(socketThreads.size() < connectionLimit) {
-                        reclaimed = true;
-                    }
+                    reclaimUnusedConnections(socketThreads);
+                    reclaimed = (socketThreads.size() < connectionLimit);
                 }
 
                 //if one of the threads disconnect and you reclaim one socket, it goes to acceptNew.
@@ -137,24 +132,22 @@ public class Server {
                 if(reclaimed) {
                     // blocks until all of the reclaimed sockets have been used.
                     acceptNewIncomingConnections(socketThreads, serverSocket, connectionLimit);
-                    if(socketThreads.size() == connectionLimit){
-                        maxedOut = true;
-                    }
+                    maxedOut = (socketThreads.size() == connectionLimit);
                 }
 
-                Thread.sleep(1000);
 
-                num++;
-                if(num>20000){
-                    num=1;
+                try{
+                    Thread.sleep(1000);
+                } catch (InterruptedException e2) {
+                    e2.printStackTrace();
                 }
+
+                serverIteration = (serverIteration>20000)?1:serverIteration+1;
             }
 
 
         } catch (IOException e1) {
             e1.printStackTrace();
-        } catch (InterruptedException e2) {
-            e2.printStackTrace();
         }
 
     }

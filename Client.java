@@ -16,19 +16,20 @@ public class Client {
 
     public static void main(String args[]){
 
-        Integer clientPort = new Integer(24002);
-        String userInput = new String();
+        Integer clientPort = 24002;
+        String userInput;
 
-        try{
-            Socket clientSocket = new Socket();
+        try(Socket clientSocket = new Socket()){
+
             InetAddress serverAddr = InetAddress.getByName(null);
             SocketAddress serverSockAddr = new InetSocketAddress(serverAddr,clientPort);
+
+            //Try to connect to the server within 1 sec.
             try {
                 clientSocket.connect(serverSockAddr,1000);
             } catch (IOException e1) {
                 e1.printStackTrace();
             }
-
 
 
             BufferedReader is = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -39,10 +40,12 @@ public class Client {
             System.out.print("Client:    ");
 
             while ((userInput = stdIn.readLine()) != null){
+
                 if(userInput.equals("EXIT")){
                     clientSocket.close();
                     exit(0);
                 }
+
                 os.println(userInput);
                 System.out.println("Echo: "+ is.readLine());
                 System.out.print("Client:    ");
